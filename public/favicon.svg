@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background Circle (Dark Slate/Navy) -->
+  <circle cx="256" cy="256" r="256" fill="#0f172a"/>
+  
+  <!-- Stylized "V" with Growth Chart Arrow (White/Neon Blue) -->
+  <path d="M110 150 L220 380 L320 180 L420 280 L450 250" 
+        stroke="#38bdf8" 
+        stroke-width="40" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none" />
+        
+  <!-- The "V" Shape part -->
+  <path d="M120 120 L256 400 L392 120" 
+        stroke="white" 
+        stroke-width="50" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"/>
+</svg>
