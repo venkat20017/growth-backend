@@ -11,6 +11,7 @@ import {
 import { sanity } from '../lib/sanity';
 import { toHTML } from '@portabletext/to-html';
 import { createImageUrlBuilder } from '@sanity/image-url';
+import { supabase } from '../lib/supabase';
 
 // Image Builder for Sanity
 const builder = createImageUrlBuilder(sanity);
@@ -22,7 +23,7 @@ function urlFor(source: any) {
 const mapSanityPostToBlogPost = (post: any): BlogPost => {
   return {
     id: post._id,
-    slug: post.slug.current,
+    slug: post.slug?.current || '',
     title: post.title,
     excerpt: post.excerpt,
     content: post.body ? toHTML(post.body, {
@@ -34,31 +35,65 @@ const mapSanityPostToBlogPost = (post: any): BlogPost => {
             }
             return `<img src="${urlFor(value)}" alt="${value.alt || ''}" class="w-full h-auto rounded-lg my-8" />${value.caption ? `<p class="text-center text-slate-400 text-sm mt-2">${value.caption}</p>` : ''}`;
           },
-          youtube: ({ value }: any) => {
-            if (!value?.url) return '';
-            const id = value.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
-            if (!id) return '';
+          video: ({ value }: any) => {
+            if (value?.videoType === 'upload') {
+              if (!value?.fileUrl) return '';
+              return `
+                <div class="relative w-full my-8 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 shadow-lg">
+                  <video controls class="w-full h-auto">
+                    <source src="${value.fileUrl}" type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              `;
+            } else {
+              if (!value?.url) return '';
+              const id = value.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)?.[1];
+              if (!id) return '';
+              return `
+                <div class="relative w-full pb-[56.25%] my-8 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 shadow-lg">
+                  <iframe 
+                    src="https://www.youtube.com/embed/${id}" 
+                    title="YouTube video player" 
+                    frameborder="0" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                    allowfullscreen
+                    class="absolute top-0 left-0 w-full h-full"
+                  ></iframe>
+                </div>
+              `;
+            }
+          },
+          table: ({ value }: any) => {
+            if (!value?.rows?.length) return '';
+            const [headerRow, ...bodyRows] = value.rows;
             return `
-              <div class="relative w-full pb-[56.25%] my-8 rounded-lg overflow-hidden bg-slate-800">
-                <iframe 
-                  src="https://www.youtube.com/embed/${id}" 
-                  title="YouTube video player" 
-                  frameborder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                  allowfullscreen
-                  class="absolute top-0 left-0 w-full h-full"
-                ></iframe>
+              <div class="overflow-x-auto my-8 custom-scrollbar">
+                <table class="min-w-full divide-y divide-slate-700 border border-slate-700 rounded-lg overflow-hidden">
+                  <thead class="bg-slate-800 border-b border-slate-700">
+                    <tr>
+                      ${headerRow.cells.map((cell: string) => `<th class="px-6 py-4 text-left text-xs font-bold text-slate-300 uppercase tracking-wider">${cell || ''}</th>`).join('')}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800 bg-slate-900/30">
+                    ${bodyRows.map((row: any) => `
+                      <tr class="hover:bg-slate-800/50 transition-colors">
+                        ${row.cells.map((cell: string) => `<td class="px-6 py-4 text-sm text-slate-400 whitespace-nowrap">${cell || ''}</td>`).join('')}
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
               </div>
             `;
           }
         }
       }
     }) : '',
-    date: new Date(post.publishedAt).toLocaleDateString('en-US', {
+    date: post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
-    }),
+    }) : 'Draft',
     category: post.category || 'Uncategorized', // Ensure category field exists in schema
     readTime: post.readTime || '5 min read', // Ensure readTime or calculate it
     imageUrl: post.coverImage ? urlFor(post.coverImage) : '',
@@ -198,7 +233,7 @@ export const api = {
         title,
         slug,
         excerpt,
-        body,
+        body[]{..., _type == "video" => {..., "fileUrl": file.asset->url}},
         publishedAt,
         coverImage,
         category,
@@ -215,7 +250,7 @@ export const api = {
           api.caseStudies.getCaseStudies(),
           api.pages.getResumeData()
         ]);
-        blogs = sanityPosts.map(mapSanityPostToBlogPost);
+        blogs = sanityPosts.filter((p: any) => p.slug?.current).map(mapSanityPostToBlogPost);
 
         // Use Sanity studies if available, otherwise fallback to CASE_STUDIES
         studies = sanityStudies.length > 0 ? sanityStudies : CASE_STUDIES;
@@ -287,7 +322,7 @@ export const api = {
         title,
         slug,
         excerpt,
-        body,
+        body[]{..., _type == "video" => {..., "fileUrl": file.asset->url}},
         publishedAt,
         coverImage,
         category,
@@ -302,10 +337,8 @@ export const api = {
 
       try {
         const sanityPosts = await sanity.fetch(query);
-        posts = sanityPosts.map(mapSanityPostToBlogPost);
-        const uniqueCategories = new Set(posts.map((post) => post.category));
-        // Add requested B2B categories to ensure they show up even if no posts yet
-        ['Outbound', 'LinkedIn Ads', 'Google Ads', 'HubSpot', 'Cold Email', 'Pipeline Strategy'].forEach(cat => uniqueCategories.add(cat));
+        posts = sanityPosts.filter((p: any) => p.slug?.current).map(mapSanityPostToBlogPost);
+        const uniqueCategories = new Set(posts.filter((post) => post.category && post.category !== 'Uncategorized').map((post) => post.category));
         categories = ['All', ...Array.from(uniqueCategories)];
       } catch (e) {
         console.error("Failed to fetch blogs:", e);
@@ -383,7 +416,7 @@ export const api = {
         title,
         slug,
         excerpt,
-        body,
+        body[]{..., _type == "video" => {..., "fileUrl": file.asset->url}},
         publishedAt,
         coverImage,
         category,
@@ -428,12 +461,18 @@ export const api = {
         learnings,
         heroImage,
         coverImage,
+        content,
+        documents[]{
+          title,
+          fileType,
+          "url": file.asset->url
+        },
         publishedAt
       }`;
 
       try {
         const sanityStudies = await sanity.fetch(query);
-        return sanityStudies.map(mapSanityToCaseStudy);
+        return sanityStudies.filter((s: any) => s.slug?.current).map(mapSanityToCaseStudy);
       } catch (e) {
         console.error("Failed to fetch case studies, falling back to static data:", e);
         return CASE_STUDIES; // Fallback
@@ -461,6 +500,12 @@ export const api = {
         learnings,
         heroImage,
         coverImage,
+        content,
+        documents[]{
+          title,
+          fileType,
+          "url": file.asset->url
+        },
         publishedAt
       }`;
 
@@ -485,15 +530,51 @@ export const api = {
   },
 
   comments: {
-    getComments: async (_slug: string): Promise<any[]> => {
-      // Comments are now handled by Giscus (GitHub Discussions).
-      // This method is kept for type compatibility but returns empty.
-      return [];
+    getComments: async (slug: string): Promise<any[]> => {
+      if (!supabase) {
+        console.warn('Supabase not initialized, skipping comments fetch.');
+        return [];
+      }
+      try {
+        const { data, error } = await (supabase as any)
+          .from('comments')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_approved', true)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        
+        return data || [];
+      } catch (e) {
+        console.error("Failed to fetch comments:", e);
+        return [];
+      }
     },
 
-    submitComment: async (_data: { slug: string; name: string; email: string; comment: string }) => {
-      // Comment submission is now handled by Giscus directly.
-      return { success: true };
+    submitComment: async (data: { slug: string; name: string; email: string; comment: string }) => {
+      if (!supabase) {
+        return { success: false, message: 'Supabase integration is disabled.' };
+      }
+      try {
+        const { error } = await (supabase as any)
+          .from('comments')
+          .insert([
+            {
+              slug: data.slug,
+              name: data.name,
+              email: data.email,
+              comment: data.comment,
+              is_approved: false // Set to false by default for moderation
+            }
+          ]);
+
+        if (error) throw error;
+        return { success: true };
+      } catch (e) {
+        console.error("Failed to submit comment:", e);
+        return { success: false, message: 'Failed to submit comment.' };
+      }
     }
   },
 
@@ -564,10 +645,25 @@ const mapSanityToCaseStudy = (study: any): CaseStudy => {
   // Normalize fields between legacy caseStudy and new demandGenExperiment types
   const isLegacy = study._type === 'caseStudy';
 
+  // Render Portable Text content to HTML (same as blog posts)
+  const contentHtml = study.content ? toHTML(study.content, {
+    components: {
+      types: {
+        image: ({ value }: any) => {
+          if (!value?.asset?._ref) return '';
+          return `<figure class="my-8">
+  <img src="${urlFor(value)}" alt="${value.alt || ''}" class="w-full h-auto rounded-xl border border-slate-800 shadow-lg" />
+  ${value.caption ? `<figcaption class="text-center text-slate-400 text-sm mt-3">${value.caption}</figcaption>` : ''}
+</figure>`;
+        }
+      }
+    }
+  }) : '';
+
   return {
     id: study._id,
     title: study.title,
-    slug: study.slug.current,
+    slug: study.slug?.current || '',
     summary: study.summary,
     growthGoal: study.growthGoal || "Demand Generation Case Study",
     hypothesis: study.hypothesis || "",
@@ -587,6 +683,12 @@ const mapSanityToCaseStudy = (study: any): CaseStudy => {
     growthInsights: study.growthInsights || study.learnings || "",
     nextExperiments: study.nextExperiments || [],
     heroImage: study.heroImage || study.coverImage ? urlFor(study.heroImage || study.coverImage) : '',
+    content: contentHtml || '',
+    documents: (study.documents || []).filter((d: any) => d.url).map((d: any) => ({
+      title: d.title || 'Download',
+      url: d.url,
+      fileType: d.fileType || 'Other'
+    }))
   };
 };
 

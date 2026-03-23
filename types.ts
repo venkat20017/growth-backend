@@ -32,7 +32,12 @@ export interface CaseStudy {
   nextExperiments?: string[];
   slug: string;
   heroImage: string;
+  /** Portable Text rendered to HTML — inline images/screenshots mid-content */
+  content?: string;
+  /** Downloadable attachments (PDFs, Excel, Word docs) */
+  documents?: { title: string; url: string; fileType: string }[];
 }
+
 
 export interface Certification {
   name: string;

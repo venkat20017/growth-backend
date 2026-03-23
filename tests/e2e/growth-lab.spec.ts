@@ -14,12 +14,11 @@ test.describe('Growth Lab Redesign Verification', () => {
         await page.waitForLoadState('load');
         await page.waitForTimeout(2000); // Small grace period for React hydration
 
-        // Look for generic text "Experiment" first to confirm page is alive
-        const textExists = await page.getByText('Experiment', { exact: false }).count();
-        console.log(`Found 'Experiment' text matches: ${textExists}`);
+        // Confirm the page is alive by looking for the main hero or headings
+        await expect(page.locator('h1').first()).toBeVisible({ timeout: 15000 });
 
-        // Look for link
-        const experimentLink = page.locator('a[href*="case-studies"]').first();
+        // Look for the View Case Studies linked button
+        const experimentLink = page.locator('a[href*="/case-studies"]').first();
         const count = await experimentLink.count();
         console.log(`Found experiment links count: ${count}`);
 

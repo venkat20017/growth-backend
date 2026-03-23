@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, CheckCircle, Wrench, FlaskConical, Beaker, Lightbulb, Target, GitMerge, BarChart3, Binary, Info } from 'lucide-react';
+import { ArrowLeft, TrendingUp, CheckCircle, Wrench, FlaskConical, Beaker, Lightbulb, Target, GitMerge, BarChart3, Binary, Info, Download, FileText, FileSpreadsheet, FileType } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { api } from '../services/api';
 import { CaseStudy, CaseStudiesPageData } from '../types';
@@ -276,6 +276,27 @@ export const CaseStudyDetail: React.FC = () => {
               </div>
             </section>
 
+            {/* 6b. Content & Screenshots (Portable Text) */}
+            {study.content && (
+              <section id="content">
+                <div className="flex items-center space-x-3 mb-6">
+                  <FileText className="text-blue-400" size={24} />
+                  <h2 className="text-2xl font-bold text-white tracking-tight">In-Depth Walkthrough</h2>
+                </div>
+                <div
+                  className="prose prose-invert prose-lg max-w-none
+                    prose-headings:text-white prose-headings:font-bold
+                    prose-p:text-slate-300 prose-p:leading-relaxed
+                    prose-strong:text-white prose-strong:font-semibold
+                    prose-ul:text-slate-300 prose-li:marker:text-blue-400
+                    prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
+                    [&_figure]:my-8 [&_figure_img]:rounded-xl [&_figure_img]:border [&_figure_img]:border-slate-700
+                    [&_figcaption]:text-center [&_figcaption]:text-slate-400 [&_figcaption]:text-sm [&_figcaption]:mt-3"
+                  dangerouslySetInnerHTML={{ __html: study.content }}
+                />
+              </section>
+            )}
+
             {/* 8. Funnel Performance */}
             <section id="performance">
               <div className="flex items-center space-x-3 mb-6">
@@ -341,6 +362,49 @@ export const CaseStudyDetail: React.FC = () => {
                   </span>
                 ))}
               </div>
+
+              {/* Downloadable Resources */}
+              {study.documents && study.documents.length > 0 && (
+                <div className="mt-10 pt-10 border-t border-slate-800">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <Download className="text-emerald-400" size={20} />
+                    <h3 className="font-bold text-white uppercase text-xs tracking-widest">Resources</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {study.documents.map((doc, i) => {
+                      const Icon = doc.fileType === 'Excel' || doc.fileType === 'CSV' ? FileSpreadsheet : FileText;
+                      const colorMap: Record<string, string> = {
+                        PDF: 'text-red-400 bg-red-500/10 border-red-500/20',
+                        Excel: 'text-green-400 bg-green-500/10 border-green-500/20',
+                        CSV: 'text-green-400 bg-green-500/10 border-green-500/20',
+                        Word: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+                        PowerPoint: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
+                        Other: 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+                      };
+                      const colorClass = colorMap[doc.fileType] || colorMap.Other;
+                      return (
+                        <a
+                          key={i}
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="flex items-center gap-3 p-3 rounded-xl border border-slate-700 hover:border-emerald-500/40 bg-slate-800/30 hover:bg-slate-800/60 transition-all group"
+                        >
+                          <span className={`flex-shrink-0 p-2 rounded-lg border ${colorClass}`}>
+                            <Icon size={14} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-slate-200 font-medium truncate group-hover:text-white transition-colors">{doc.title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{doc.fileType}</p>
+                          </div>
+                          <Download size={14} className="text-slate-500 group-hover:text-emerald-400 flex-shrink-0 transition-colors" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* 10. Next Growth Experiments */}
               <div className="mt-16 pt-16 border-t border-slate-800">

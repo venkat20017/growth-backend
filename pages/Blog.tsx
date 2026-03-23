@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { BlogPost as BlogPostType, BlogPageData } from '../types';
 import Loading from '../components/Loading';
 import SEO from '../components/SEO';
-import Giscus from '../components/Giscus';
+import Comments from '../components/Comments';
 
 // --- Types ---
 
@@ -401,8 +401,8 @@ export const BlogPost: React.FC = () => {
                 </div>
               </div>
 
-              {/* Giscus Comments Section */}
-              <Giscus />
+              {/* Supabase Comments Section */}
+              <Comments slug={post.slug} />
             </div>
 
             {/* Sidebar Column (Related Articles) */}

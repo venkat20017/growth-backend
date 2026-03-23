@@ -35,8 +35,8 @@ async function generateSitemap() {
     try {
         // Fetch dynamic routes
         const [posts, caseStudies] = await Promise.all([
-            client.fetch(`*[_type == "post"]{ "slug": slug.current, _updatedAt }`),
-            client.fetch(`*[_type == "caseStudy"]{ "slug": slug.current, _updatedAt }`),
+            client.fetch(`*[_type == "post" && defined(slug.current)]{ "slug": slug.current, _updatedAt }`),
+            client.fetch(`*[_type in ["caseStudy", "demandGenExperiment"] && defined(slug.current)]{ "slug": slug.current, _updatedAt }`),
         ]);
 
         const dynamicRoutes = [
